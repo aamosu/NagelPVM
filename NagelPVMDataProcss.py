@@ -20,6 +20,8 @@ sensorValData= []
 
 
 
+
+
 #function to read in data from Arduino 
 
 def readProcessData():
@@ -66,7 +68,12 @@ def on_close(event):
  
 
 def pltDataFromcsv ():
+    #timeValsX_new= []
+    #sensorValData_new= []
+
+    #timeValsX_new,sensorValData_new=deleteElements(timeValsX,sensorValData)
     plt.plot(timeValsX,sensorValData,label="Pressure vs Time")
+    plt.plot(timeValsX[detect_slope_change(sensorValData)],sensorValData[detect_slope_change(sensorValData)],marker="o", markersize=20, markeredgecolor="red", markerfacecolor="green")
     plt.xlabel('Time') 
     plt.ylabel('Pressure') 
     plt.title('Pressure vs Time', fontsize = 20) 
@@ -74,10 +81,50 @@ def pltDataFromcsv ():
     plt.legend() 
     plt.show()
 
+  
+
+
+def detect_slope_change(arr):
+    n = len(arr)
+
+    # Calculate the slope between consecutive elements
+    slopes = [arr[i + 1] - arr[i] for i in range(n - 1)]
+
+    # Find the index where the slope significantly decreases
+    for i in range(1, n - 1):
+        if slopes[i] < slopes[i - 1]:
+            return i
+        
+def deleteElements(array1, array2):
+    # Find indexes of elements less than 0.5 in array1
+    delete_indexes = [i for i in range(len(array1)) if array1[i] < 0.5]
+
+    # Delete elements less than 0.5 in array1
+    array1 = [element for element in array1 if element >= 0.5]
+
+    # Delete corresponding elements at the same index in array2
+    array2 = [array2[i] for i in range(len(array2)) if i not in delete_indexes]
+
+    return array1, array2
+
+'''
+def detect_slope_change(data):
+    # Calculate the slope between consecutive points
+    slopes = [data[i] - data[i - 1] for i in range(1, len(data))]
+
+    # Find the index where the slope significantly decreases
+    for i in range(1, len(slopes)):
+        if slopes[i] < 0.5 * slopes[i - 1]:  # Adjust the threshold as needed
+            return i
+
+    # If no significant slope change is found
+    return -1
+'''
 
 # Live Data Collection 
 fig, axs = plt.subplots()
 fig.canvas.mpl_connect('close_event', on_close)
 ani= FuncAnimation(fig, update_plot,interval=10)
 plt.show()
+
 
