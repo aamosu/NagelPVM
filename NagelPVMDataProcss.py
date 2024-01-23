@@ -27,11 +27,13 @@ def readProcessData():
     sensorValues= line.split(',')
 
     #add associated time values to sensor data
-
-    #add associated time values to array 
-    timeValsX.append(float(sensorValues[0]))
-    #add Sensor Data to array
-    sensorValData.append(float(sensorValues[1]))
+    try:
+        #add associated time values to array 
+        timeValsX.append(float(sensorValues[0]))
+        #add Sensor Data to array
+        sensorValData.append(float(sensorValues[1]))
+    except:                                             # Pass if data point is bad                               
+            pass
 
    # print(f'Time: {sensorValues[0]}, Pressure: {sensorValues[1]}')
     #print(sensorValData)
@@ -50,6 +52,8 @@ def update_plot(frame):
     plt.ylabel('Pressure')
     plt.legend()
 
+    
+
 
 def on_close(event):
     with open('PVMData.csv', 'w', newline='') as csvfile:
@@ -58,11 +62,22 @@ def on_close(event):
         for x, s1 in zip(timeValsX, sensorValData):
             writer.writerow([x,s1])
     ser.close()
+    pltDataFromcsv()
+ 
 
+def pltDataFromcsv ():
+    plt.plot(timeValsX,sensorValData,label="Pressure vs Time")
+    plt.xlabel('Time') 
+    plt.ylabel('Pressure') 
+    plt.title('Pressure vs Time', fontsize = 20) 
+    plt.grid() 
+    plt.legend() 
+    plt.show()
+
+
+# Live Data Collection 
 fig, axs = plt.subplots()
-
 fig.canvas.mpl_connect('close_event', on_close)
-
 ani= FuncAnimation(fig, update_plot,interval=10)
 plt.show()
 
