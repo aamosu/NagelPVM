@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import csv 
 import time 
+import numpy as np
+import sys
 
 # Serial Port Init 
 
@@ -16,6 +18,11 @@ ser= serial.Serial(SerPort,BAUD_RATE)
 
 timeValsX= []
 sensorValData= []
+
+dirrX=[]
+dirrY=[]
+
+
 
 
 
@@ -41,7 +48,16 @@ def readProcessData():
     #print(sensorValData)
 
 
+def adjust_values(array):
+    adjusted_array = np.copy(array)
 
+    for i in range(1, len(array)):
+        percent_change = (array[i] - array[i-1]) / array[i-1] * 100
+
+        if np.abs(percent_change) <= 10:
+            adjusted_array[i] = adjusted_array[i-1]
+
+    return adjusted_array
 
     
 
@@ -68,21 +84,73 @@ def on_close(event):
  
 
 def pltDataFromcsv ():
-    #timeValsX_new= []
-    #sensorValData_new= []
 
-    #timeValsX_new,sensorValData_new=deleteElements(timeValsX,sensorValData)
+    plt.subplot(2, 1, 1)
     plt.plot(timeValsX,sensorValData,label="Pressure vs Time")
-    plt.plot(timeValsX[detect_slope_change(sensorValData)],sensorValData[detect_slope_change(sensorValData)],marker="o", markersize=20, markeredgecolor="red", markerfacecolor="green")
+   # plt.plot(timeValsX,sensorValData,marker="o", markersize=20, markeredgecolor="red", markerfacecolor="green")
     plt.xlabel('Time') 
     plt.ylabel('Pressure') 
     plt.title('Pressure vs Time', fontsize = 20) 
-    plt.grid() 
     plt.legend() 
+    
+
+    '''
+
+    plt.subplot(3, 1, 2)
+    plt.plot(timeValsX,adjust_values(sensorValData),label="Stabilized") 
+    '''
+    sensorValData_np= np.array(adjust_values(sensorValData))
+    timeValsX_np= np.array(timeValsX)
+
+    dirrVal= np.gradient(sensorValData_np,timeValsX_np)
+    zeroDirrIndex=np.where(np.isclose(dirrVal,0))
+
+    #dirrX = [timeValsX[index] for index in zeroDirrIndex]
+
+    # Convert the tuple to a list
+    zeroDirrIndexList = zeroDirrIndex[0]
+
+    # Use NumPy's array indexing
+    dirrX = timeValsX_np[zeroDirrIndexList]
+    #dirrX = timeValsX[zeroDirrIndex]
+
+    dirrY= dirrVal[zeroDirrIndexList]
+ 
+
+
+    #print(dirrVal)
+    #print(zeroDirrIndex)
+
+    plt.subplot(2, 1, 2)
+    plt.plot(dirrX,dirrY, label='Derivative')
+
+    plt.grid() 
     plt.show()
 
-  
 
+    
+'''
+    plt.scatter(timeValsX[zeroDirrIndex], np.zeros_like(zeroDirrIndex), c='red', marker='o', label='Derivative is 0')
+    plt.title('Derivative of the Array')
+    plt.legend() 
+'''
+    
+
+'''
+def getdiff(arrX,arrY):
+    dirrVal= np.gradient(arrY,arrX)
+    zeroDirrIndex=np.where(np.isclose(dirrVal,0))
+
+    plt.plot(arrX, zeroDirrIndex, label='Derivative')
+    plt.scatter(arrX[zeroDirrIndex], np.zeros_like(zeroDirrIndex), c='red', marker='o', label='Derivative is 0')
+    plt.title('Derivative of the Array')
+    plt.legend()
+
+    plt.tight_layout()
+    plt.show()
+'''
+
+'''
 
 def detect_slope_change(arr):
     n = len(arr)
@@ -95,36 +163,14 @@ def detect_slope_change(arr):
         if slopes[i] < slopes[i - 1]:
             return i
         
-def deleteElements(array1, array2):
-    # Find indexes of elements less than 0.5 in array1
-    delete_indexes = [i for i in range(len(array1)) if array1[i] < 0.5]
-
-    # Delete elements less than 0.5 in array1
-    array1 = [element for element in array1 if element >= 0.5]
-
-    # Delete corresponding elements at the same index in array2
-    array2 = [array2[i] for i in range(len(array2)) if i not in delete_indexes]
-
-    return array1, array2
-
-'''
-def detect_slope_change(data):
-    # Calculate the slope between consecutive points
-    slopes = [data[i] - data[i - 1] for i in range(1, len(data))]
-
-    # Find the index where the slope significantly decreases
-    for i in range(1, len(slopes)):
-        if slopes[i] < 0.5 * slopes[i - 1]:  # Adjust the threshold as needed
-            return i
-
-    # If no significant slope change is found
-    return -1
 '''
 
 # Live Data Collection 
 fig, axs = plt.subplots()
 fig.canvas.mpl_connect('close_event', on_close)
 ani= FuncAnimation(fig, update_plot,interval=10)
+plt.rcParams["figure.figsize"] = (18, 10)
 plt.show()
 
+sys.exit()
 
