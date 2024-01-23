@@ -85,85 +85,45 @@ def on_close(event):
 
 def pltDataFromcsv ():
 
+    
     plt.subplot(2, 1, 1)
     plt.plot(timeValsX,sensorValData,label="Pressure vs Time")
-   # plt.plot(timeValsX,sensorValData,marker="o", markersize=20, markeredgecolor="red", markerfacecolor="green")
+    # plt.plot(timeValsX,sensorValData,marker="o", markersize=20, markeredgecolor="red", markerfacecolor="green")
     plt.xlabel('Time') 
     plt.ylabel('Pressure') 
     plt.title('Pressure vs Time', fontsize = 20) 
     plt.legend() 
     
 
-    '''
-
-    plt.subplot(3, 1, 2)
-    plt.plot(timeValsX,adjust_values(sensorValData),label="Stabilized") 
-    '''
-    sensorValData_np= np.array(adjust_values(sensorValData))
-    timeValsX_np= np.array(timeValsX)
-
-    dirrVal= np.gradient(sensorValData_np,timeValsX_np)
-    zeroDirrIndex=np.where(np.isclose(dirrVal,0))
-
-    #dirrX = [timeValsX[index] for index in zeroDirrIndex]
-
-    # Convert the tuple to a list
-    zeroDirrIndexList = zeroDirrIndex[0]
-
-    # Use NumPy's array indexing
-    dirrX = timeValsX_np[zeroDirrIndexList]
-    #dirrX = timeValsX[zeroDirrIndex]
-
-    dirrY= dirrVal[zeroDirrIndexList]
- 
-
-
-    #print(dirrVal)
-    #print(zeroDirrIndex)
+    
 
     plt.subplot(2, 1, 2)
-    plt.plot(dirrX,dirrY, label='Derivative')
+    plt.plot(timeValsX,adjust_values(sensorValData),label="Stabilized") 
+    
+    #sensorValData_np= np.array(sensorValData)
+    timeValsX_np= np.array(timeValsX)
+    dirrVal=np.diff(sensorValData)
+
+    timeValsX_np = timeValsX_np[:len(dirrVal)]
+
+
+    plt.plot(timeValsX_np,dirrVal, color="blue",label='Derivative')
 
     plt.grid() 
     plt.show()
 
+   
 
+
+
+def calculate_derivative(array):
+    derivative = np.zeros_like(array, dtype=float)
+
+    for i in range(1, len(array)):
+        derivative[i] = (array[i] - array[i-1])
+
+    return derivative
     
-'''
-    plt.scatter(timeValsX[zeroDirrIndex], np.zeros_like(zeroDirrIndex), c='red', marker='o', label='Derivative is 0')
-    plt.title('Derivative of the Array')
-    plt.legend() 
-'''
-    
-
-'''
-def getdiff(arrX,arrY):
-    dirrVal= np.gradient(arrY,arrX)
-    zeroDirrIndex=np.where(np.isclose(dirrVal,0))
-
-    plt.plot(arrX, zeroDirrIndex, label='Derivative')
-    plt.scatter(arrX[zeroDirrIndex], np.zeros_like(zeroDirrIndex), c='red', marker='o', label='Derivative is 0')
-    plt.title('Derivative of the Array')
-    plt.legend()
-
-    plt.tight_layout()
-    plt.show()
-'''
-
-'''
-
-def detect_slope_change(arr):
-    n = len(arr)
-
-    # Calculate the slope between consecutive elements
-    slopes = [arr[i + 1] - arr[i] for i in range(n - 1)]
-
-    # Find the index where the slope significantly decreases
-    for i in range(1, n - 1):
-        if slopes[i] < slopes[i - 1]:
-            return i
-        
-'''
 
 # Live Data Collection 
 fig, axs = plt.subplots()
