@@ -25,19 +25,23 @@ ani = None
 span = None
 
 initial_discards = 20  # Number of initial readings to discard
+
 # Tkinter GUI setup
 window = tk.Tk()
 window.title("Live Pressure Data")
 
 fig = Figure(figsize=(8, 6))
 ax = fig.add_subplot(111)
+line, = ax.plot([], [], 'r-')  # Initialize an empty line and use it for updating
+ax.set_xlabel('Time')
+ax.set_ylabel('Pressure')
 canvas = FigureCanvasTkAgg(fig, master=window)
 canvas.draw()
 canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
 # Function to read pressure data from a serial port
 def read_process_data():
-    global initial_discards
+    global initial_discards,timeValsX,sensorValData
     if ser.in_waiting > 0:
         line = ser.readline().decode('utf-8').strip()
         sensorValues = line.split(',')
@@ -60,16 +64,10 @@ def read_process_data():
 def update_plot(frame):
     if running:
         read_process_data()
-        if timeValsX and sensorValData:
-            ax.clear()
-            ax.step(timeValsX, sensorValData, where='post', linestyle='--', color='r', label='Pressure')
-            ax.set_xlabel('Time')
-            ax.set_ylabel('Pressure')
-            ax.set_title('Pressure-Time History')
-            ax.set_ylim(0, max(sensorValData) + 1)
-            ax.legend()
-            ax.grid(True)
-            canvas.draw()
+        line.set_data(timeValsX, sensorValData)
+        ax.relim()  # Recompute the ax.dataLim
+        ax.autoscale_view()  # Update axes limits
+        canvas.draw_idle()  # Use draw_idle to redraw the plot
 
 def startRecordAnimation():
     global capture,ani 
@@ -85,10 +83,11 @@ def startRecordAnimation():
 # Function to start the animation
 def start_animation():
     global running,capture,ani 
-    running = True
-    capture=True
-    startRecordAnimation()
-    ani.event_source.start()
+    if not running:
+        running = True
+        capture=True
+        startRecordAnimation()
+        ani.event_source.start()
     print(running)
 
 def stopRecordAnimation():
@@ -109,8 +108,8 @@ def stop_animation():
         stopRecordAnimation()
         ani.event_source.stop()
         #ani.event_source.start()
-        #canvas.draw()
-        #enable_span_selector()
+        canvas.draw()
+        enable_span_selector()
     print(running)
 
 # Function to save recorded data to a CSV file
@@ -139,7 +138,7 @@ def enable_span_selector():
             if selected_pressure:
                 average_pressure = np.mean(selected_pressure)
                 print(f"Average pressure between {timeValsX[indmin]}s and {timeValsX[indmax]}s: {average_pressure:.2f} atm")
-    
+    global span
     span=SpanSelector(ax, onselect, 'horizontal', useblit=True, props=dict(alpha=0.5, facecolor='red'))
 
 
