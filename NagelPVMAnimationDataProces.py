@@ -19,6 +19,8 @@ timeValsX = []
 sensorValData = []
 recordedTimeValsX = []
 recordedSensorValData = []
+spans = []  # List to store details of the last three spans
+#selectedPressureSave=[]
 running = False
 capture=False 
 ani = None
@@ -58,7 +60,7 @@ def read_process_data():
                         recordedTimeValsX.append(timeVal)
                         recordedSensorValData.append(sensorVal)
             except ValueError:
-                print("Invalid data format:", line)
+                print("Invalid:", line)
 
 # Function to update the plot
 def update_plot(frame):
@@ -88,7 +90,6 @@ def start_animation():
         capture=True
         startRecordAnimation()
         ani.event_source.start()
-    print(running)
 
 def stopRecordAnimation():
     global capture
@@ -110,7 +111,6 @@ def stop_animation():
         #ani.event_source.start()
         canvas.draw()
         enable_span_selector()
-    print(running)
 
 # Function to save recorded data to a CSV file
 def saveRecordedData(filename, timeVals, sensorVals):
@@ -122,25 +122,50 @@ def saveRecordedData(filename, timeVals, sensorVals):
 
 # Close event handler
 def on_close():
+    global spans
     if running and ani:
         ani.event_source.stop()
     if ser.is_open:
         ser.close()
     window.destroy()
+    print(spans)
 
 def enable_span_selector():
-    # Function to calculate and print the average pressure in the selected range
+    
     def onselect(xmin, xmax):
-        indmin, indmax = np.searchsorted(timeValsX, (xmin, xmax))
-        indmax = min(len(timeValsX) - 1, indmax)
-        if indmin < indmax:
-            selected_pressure = sensorValData[indmin:indmax]
-            if selected_pressure:
-                average_pressure = np.mean(selected_pressure)
-                print(f"Average pressure between {timeValsX[indmin]}s and {timeValsX[indmax]}s: {average_pressure:.2f} atm")
-    global span
-    span=SpanSelector(ax, onselect, 'horizontal', useblit=True, props=dict(alpha=0.5, facecolor='red'))
+        global spans
+        if not running:  # Ensure that the spans are added only when not running
+            indmin, indmax = np.searchsorted(timeValsX, (xmin, xmax))
+            indmax = min(len(timeValsX) - 1, indmax)
+            if indmin < indmax:
+                selectedPressure = sensorValData[indmin:indmax]
+                avgPressure = np.mean(selectedPressure) if selectedPressure else 0
+                spans.append((xmin, xmax, avgPressure))
+                if len(spans) > 3:
+                    spans=spans[-3:]
+                                # Clear old horizontal spans and redraw only the current valid ones
+                for artist in ax.artists:
+                    artist.remove()
+                
+                # Redraw all valid spans
+                for span in spans:
+                    s_xmin, s_xmax, _ = span
+                    # Normalize span drawing based on the x-limits of the data
+                    data_span_width = timeValsX[-1] - timeValsX[0] if timeValsX else 1
+                    ax.axhspan(min(selectedPressure), max(selectedPressure), xmin=(s_xmin - timeValsX[0]) / data_span_width, 
+                               xmax=(s_xmax - timeValsX[0]) / data_span_width, color='yellow', alpha=0.3)
 
+                print(f"Average pressure between {timeValsX[indmin]}s and {timeValsX[indmax]}s: {avgPressure:.2f} atm")
+
+    global span
+    span = SpanSelector(ax, onselect, 'horizontal', useblit=True, props=dict(alpha=0.5, facecolor='red'))
+
+
+def deleteOldAvg():
+    global spans
+    if spans:
+        spans.pop()
+        
 
 
 
@@ -149,6 +174,9 @@ start_button = tk.Button(window, text="Start", command=start_animation)
 start_button.pack(side=tk.LEFT)
 
 stop_button = tk.Button(window, text="Stop", command=stop_animation)
+stop_button.pack(side=tk.LEFT)
+
+stop_button = tk.Button(window, text="REDO", command= deleteOldAvg)
 stop_button.pack(side=tk.LEFT)
 
 
