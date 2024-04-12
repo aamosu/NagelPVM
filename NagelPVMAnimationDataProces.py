@@ -191,8 +191,19 @@ def calculate_vk():
             result_label.config(text="Error")
             return
 
+
         Vk_eq1 = -nk * R * T + (n1 * R * T) / Pa
         Vk_eq2= ((P0 - Pk)/(Pa - Pk)) * Vt
+
+        # Save to CSV
+        current_time = time.strftime("%Y%m%d_%H%M%S")
+        filename = f"Vk_Calculations_{current_time}.csv"
+        with open(filename, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['n1', 'nk', 'VT', 'P0', 'Pa', 'Pk', 'Vk_eq1', 'Vk_eq2'])
+            writer.writerow([n1, nk, Vt, P0, Pa, Pk, Vk_eq1, Vk_eq2])
+
+
         result_label.config(text=f"Equation 1 Vk : {Vk_eq1:.2f} liters, Equation 2 Vk: {Vk_eq2:.2f} liters")
         
     except ValueError as e:
@@ -242,14 +253,6 @@ def summary():
     text.insert(tk.END, summary_text)
     text.config(state='disabled')
     text.pack()
-
-
-    global recordedAverages 
-    recordedAverages= pressures
-
-    current_time = time.strftime("%Y%m%d_%H%M%S")
-    filename = f"Averages{current_time}.csv"
-    saveRecordedData(filename, label_cycle, pressures[label])
 
     summary_window.mainloop()
 
