@@ -22,6 +22,7 @@ recordedSensorValData = []
 running = False
 capture=False 
 ani = None
+span = None
 
 initial_discards = 20  # Number of initial readings to discard
 # Tkinter GUI setup
@@ -71,20 +72,24 @@ def update_plot(frame):
             canvas.draw()
 
 def startRecordAnimation():
-    global capture  
+    global capture,ani 
     
     # Clear recorded data arrays
-    capture=True 
-    del recordedTimeValsX[:]
-    del recordedSensorValData[:]
+    if capture:
+    #capture=True 
+        del recordedTimeValsX[:]
+        del recordedSensorValData[:]
+
+    
 
 # Function to start the animation
 def start_animation():
-    global running,capture
+    global running,capture,ani 
     running = True
-    if not capture:
-        startRecordAnimation()
-    #startRecordAnimation()
+    capture=True
+    startRecordAnimation()
+    ani.event_source.start()
+    print(running)
 
 def stopRecordAnimation():
     global capture
@@ -97,11 +102,16 @@ def stopRecordAnimation():
 
 # Function to stop the animation and enable the SpanSelector
 def stop_animation():
-    global running,capture 
-    running = False
-    if capture:
+    global running,capture,ani,span 
+    if running:
+        running = False
+        capture= False 
         stopRecordAnimation()
+        ani.event_source.stop()
+        #ani.event_source.start()
+        #canvas.draw()
         #enable_span_selector()
+    print(running)
 
 # Function to save recorded data to a CSV file
 def saveRecordedData(filename, timeVals, sensorVals):
@@ -130,7 +140,7 @@ def enable_span_selector():
                 average_pressure = np.mean(selected_pressure)
                 print(f"Average pressure between {timeValsX[indmin]}s and {timeValsX[indmax]}s: {average_pressure:.2f} atm")
     
-    SpanSelector(ax, onselect, 'horizontal', useblit=True, props=dict(alpha=0.5, facecolor='red'))
+    span=SpanSelector(ax, onselect, 'horizontal', useblit=True, props=dict(alpha=0.5, facecolor='red'))
 
 
 
@@ -144,7 +154,7 @@ stop_button.pack(side=tk.LEFT)
 
 
 # Live Data Collection
-ani = FuncAnimation(fig, update_plot, interval=10)
+ani = FuncAnimation(fig, update_plot, interval=100)
 
 window.protocol("WM_DELETE_WINDOW", on_close)
 window.mainloop()
