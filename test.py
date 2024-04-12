@@ -6,15 +6,23 @@ from matplotlib.animation import FuncAnimation
 import csv
 import time
 
+
+#increase bit precisions of reading 
+# slow down sample rate 
+# GUI control of the data post capture and spits out average rate 
+# use highlight capture to get results after specified number of seconds 
+
+
+
 # Serial Port Init
 SerPort = 'COM4'
 BAUD_RATE = 115200
 ser = serial.Serial(SerPort, BAUD_RATE)
 
-
 # Clear serial input buffer
 while ser.in_waiting > 0:
     ser.read()
+
 
 # Close the serial port
 ser.close()
@@ -30,25 +38,13 @@ timeValsX = []
 sensorValData = []
 recordedTimeValsX = []
 recordedSensorValData = []
-prevRecordedTimeValsX = []  # Define previous session recorded time values
-prevRecordedSensorValData = []  # Define previous session recorded sensor values
 
 # Flag to control animation
 running = False
 capture = False
-plot_enabled = False  # Flag to enable plotting after the first 10 valid readings
 
-# Counter to keep track of valid readings greater than 1 second
-valid_reading_count = 0
-
-# CSV file to store captured data
-capture_file = 'captured_data.csv'
-
-# function to read in data from Arduino
+# Function to read in data from Arduino
 def readProcessData():
-    global plot_enabled
-    global valid_reading_count
-    
     line = ser.readline().decode('utf-8').strip()
     sensorValues = line.split(',')
     
@@ -58,34 +54,15 @@ def readProcessData():
         try:
             timeVal = float(timeVal_str)
             sensorVal = float(sensorVal_str)
-            
-            # Check if timeVal is greater than 1 second
-            if timeVal > 1.0:
-                valid_reading_count += 1
-            
-            # If we've received 10 valid readings greater than 1 second, enable plotting
-            if valid_reading_count >= 10:
-                plot_enabled = True
-            
-            # Append data only if plotting is enabled
-            if plot_enabled:
-                timeValsX.append(timeVal)
-                sensorValData.append(sensorVal)
-                if capture:
-                    recordedTimeValsX.append(timeVal)
-                    recordedSensorValData.append(sensorVal)
-                    
+            timeValsX.append(timeVal)
+            sensorValData.append(sensorVal)
+            if capture:
+                recordedTimeValsX.append(timeVal)
+                recordedSensorValData.append(sensorVal)
         except ValueError:
             print("Invalid data format:", line)
 
-# Function to update the CSV file with captured data
-def updateCaptureFile():
-    with open(capture_file, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['Time', 'Pressure'])
-        for time, pressure in zip(recordedTimeValsX, recordedSensorValData):
-            writer.writerow([time, pressure])
-
+# Function to update the plot
 def update_plot(frame):
     if running:
         readProcessData()
@@ -118,13 +95,22 @@ def saveRecordedData(filename, timeVals, sensorVals):
 
 def startRecordAnimation():
     global capture  
-    capture = True
+    if not capture:
+        # Start capturing
+        capture = True
+        # Clear recorded data arrays
+        del recordedTimeValsX[:]
+        del recordedSensorValData[:]
+       
 
 def stopRecordAnimation():
     global capture
     capture = False
-    # Update the CSV file with captured data
-    updateCaptureFile()
+
+     # Start a new CSV file for this capture session
+    current_time = time.strftime("%Y%m%d_%H%M%S")
+    filename = f"capture_{current_time}.csv"
+    saveRecordedData(filename, recordedTimeValsX, recordedSensorValData)
 
 def startAnimation():
     global running
@@ -156,7 +142,6 @@ canvas.draw()
 canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
 # Create start and stop buttons
-
 start_button = tk.Button(window, text="START", command=startAnimation)
 start_button.pack(side=tk.TOP)
 

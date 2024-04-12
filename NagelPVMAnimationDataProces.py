@@ -1,56 +1,156 @@
-import time
 import serial
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+import numpy as np
+import tkinter as tk
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.widgets import SpanSelector
+from matplotlib.animation import FuncAnimation
+import time
 import csv
 
-class AnimationPlot:
+# Serial port configuration
+SerPort = 'COM4'
+BAUD_RATE = 115200
+ser = serial.Serial(SerPort, BAUD_RATE)
 
-    def animate(self, i, dataList, ser):
-     
-        arduinoData_string= ser.readline().decode('utf-8').strip()
+# Global variables for plot data
+timeValsX = []
+sensorValData = []
+recordedTimeValsX = []
+recordedSensorValData = []
+running = False
+capture=False 
+ani = None
 
-        try:
-            arduinoData_float = float(arduinoData_string)   # Convert to float
-            dataList.append(arduinoData_float)              # Add to the list holding the fixed number of points to animate
+initial_discards = 20  # Number of initial readings to discard
+# Tkinter GUI setup
+window = tk.Tk()
+window.title("Live Pressure Data")
 
-        except:                                             # Pass if data point is bad                               
-            pass
+fig = Figure(figsize=(8, 6))
+ax = fig.add_subplot(111)
+canvas = FigureCanvasTkAgg(fig, master=window)
+canvas.draw()
+canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        dataList = dataList[-50:]                           # Fix the list size so that the animation plot 'window' is x number of points
-        
-        ax.clear()                                          # Clear last data frame
-        
-        self.getPlotFormat()
-        ax.plot(dataList)                                   # Plot new data frame
-        
+# Function to read pressure data from a serial port
+def read_process_data():
+    global initial_discards
+    if ser.in_waiting > 0:
+        line = ser.readline().decode('utf-8').strip()
+        sensorValues = line.split(',')
+        if len(sensorValues) == 2:
+            try:
+                timeVal = float(sensorValues[0])
+                sensorVal = float(sensorValues[1])
+                if initial_discards > 0:
+                    initial_discards -= 1  # Decrement the discard counter
+                else:
+                    timeValsX.append(timeVal)
+                    sensorValData.append(sensorVal)
+                    if capture:
+                        recordedTimeValsX.append(timeVal)
+                        recordedSensorValData.append(sensorVal)
+            except ValueError:
+                print("Invalid data format:", line)
 
-    def getPlotFormat(self):
-        ax.set_ylim([0, 1200])                              # Set Y axis limit of plot
-        ax.set_title("Arduino Data")                        # Set title of figure
-        ax.set_ylabel("Value")                              # Set title of y axis
+# Function to update the plot
+def update_plot(frame):
+    if running:
+        read_process_data()
+        if timeValsX and sensorValData:
+            ax.clear()
+            ax.step(timeValsX, sensorValData, where='post', linestyle='--', color='r', label='Pressure')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Pressure')
+            ax.set_title('Pressure-Time History')
+            ax.set_ylim(0, max(sensorValData) + 1)
+            ax.legend()
+            ax.grid(True)
+            canvas.draw()
+
+def startRecordAnimation():
+    global capture  
+    
+    # Clear recorded data arrays
+    capture=True 
+    del recordedTimeValsX[:]
+    del recordedSensorValData[:]
+
+# Function to start the animation
+def start_animation():
+    global running,capture
+    running = True
+    if not capture:
+        startRecordAnimation()
+    #startRecordAnimation()
+
+def stopRecordAnimation():
+    global capture
+    capture = False
+
+     # Start a new CSV file for this capture session
+    current_time = time.strftime("%Y%m%d_%H%M%S")
+    filename = f"capture_{current_time}.csv"
+    saveRecordedData(filename, recordedTimeValsX, recordedSensorValData)
+
+# Function to stop the animation and enable the SpanSelector
+def stop_animation():
+    global running,capture 
+    running = False
+    if capture:
+        stopRecordAnimation()
+        #enable_span_selector()
+
+# Function to save recorded data to a CSV file
+def saveRecordedData(filename, timeVals, sensorVals):
+    with open(filename, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['Time', 'Pressure'])
+        for time, pressure in zip(timeVals, sensorVals):
+            writer.writerow([time, pressure])
+
+# Close event handler
+def on_close():
+    if running and ani:
+        ani.event_source.stop()
+    if ser.is_open:
+        ser.close()
+    window.destroy()
+
+def enable_span_selector():
+    # Function to calculate and print the average pressure in the selected range
+    def onselect(xmin, xmax):
+        indmin, indmax = np.searchsorted(timeValsX, (xmin, xmax))
+        indmax = min(len(timeValsX) - 1, indmax)
+        if indmin < indmax:
+            selected_pressure = sensorValData[indmin:indmax]
+            if selected_pressure:
+                average_pressure = np.mean(selected_pressure)
+                print(f"Average pressure between {timeValsX[indmin]}s and {timeValsX[indmax]}s: {average_pressure:.2f} atm")
+    
+    SpanSelector(ax, onselect, 'horizontal', useblit=True, props=dict(alpha=0.5, facecolor='red'))
 
 
 
-def on_close(event):
 
-    ser.close()
+# Buttons to control the live plot
+start_button = tk.Button(window, text="Start", command=start_animation)
+start_button.pack(side=tk.LEFT)
 
-dataList = []                                           # Create empty list variable for later use
-                                                        
-fig = plt.figure()                                      # Create Matplotlib plots fig is the 'higher level' plot window
-ax = fig.add_subplot(111)                               # Add subplot to main fig window
+stop_button = tk.Button(window, text="Stop", command=stop_animation)
+stop_button.pack(side=tk.LEFT)
 
-realTimePlot = AnimationPlot()
 
-ser = serial.Serial("COM4", 9600)                       # Establish Serial object with COM port and BAUD rate to match Arduino Port/rate
-time.sleep(2)                                           # Time delay for Arduino Serial initialization 
+# Live Data Collection
+ani = FuncAnimation(fig, update_plot, interval=10)
 
-                                                        # Matplotlib Animation Fuction that takes takes care of real time plot.
-                                                        # Note that 'fargs' parameter is where we pass in our dataList and Serial object. 
+window.protocol("WM_DELETE_WINDOW", on_close)
+window.mainloop()
 
-fig.canvas.mpl_connect('close_event', on_close)
-ani = animation.FuncAnimation(fig, realTimePlot.animate, frames=100, fargs=(dataList, ser), interval=100) 
 
-plt.show()                                              # Keep Matplotlib plot persistent on screen until it is closed
-ser.close()                                             # Close Serial connection when plot is closed
+
+
+
+
